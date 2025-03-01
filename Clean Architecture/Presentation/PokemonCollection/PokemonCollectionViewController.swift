@@ -9,7 +9,8 @@ import UIKit
 import SnapKit
 
 final class PokemonCollectionViewController: UIViewController {
-    private let viewModel: PokemonCollectionViewModelInput
+    private let presenter: PokemonCollectionPresenterInput
+    private var pokemonList: [Pokemon] = []
     
     private let searchController = UISearchController(searchResultsController: nil)
     
@@ -42,10 +43,9 @@ final class PokemonCollectionViewController: UIViewController {
         return indicator
     }()
 
-    init(viewModel: PokemonCollectionViewModelInput) {
-        self.viewModel = viewModel
+    init(presenter: PokemonCollectionPresenterInput) {
+        self.presenter = presenter
         super.init(nibName: nil, bundle: nil)
-        (viewModel as? PokemonCollectionViewModel)?.output = self
     }
     
     required init?(coder: NSCoder) {
@@ -56,7 +56,7 @@ final class PokemonCollectionViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupSearchController()
-        loadPokemonList()
+        presenter.viewDidLoad()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -101,16 +101,11 @@ final class PokemonCollectionViewController: UIViewController {
         navigationItem.hidesSearchBarWhenScrolling = false
         definesPresentationContext = true
     }
-    
-    private func loadPokemonList() {
-        activityIndicator.startAnimating()
-        viewModel.fetchPokemonList()
-    }
 }
 
 extension PokemonCollectionViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return viewModel.filteredPokemonList.count
+        return pokemonList.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -118,7 +113,7 @@ extension PokemonCollectionViewController: UICollectionViewDataSource, UICollect
             return UICollectionViewCell()
         }
         
-        let pokemon = viewModel.filteredPokemonList[indexPath.item]
+        let pokemon = pokemonList[indexPath.item]
         cell.configure(with: pokemon)
         return cell
     }
@@ -136,7 +131,7 @@ extension PokemonCollectionViewController: UICollectionViewDataSource, UICollect
 extension PokemonCollectionViewController: UISearchResultsUpdating {
     func updateSearchResults(for searchController: UISearchController) {
         guard let query = searchController.searchBar.text else { return }
-        viewModel.searchPokemon(with: query)
+        presenter.searchPokemon(query: query)
     }
 }
 
@@ -149,43 +144,46 @@ extension PokemonCollectionViewController: UIScrollViewDelegate {
         let screenHeight = scrollView.bounds.height
         
         if offsetY > contentHeight - screenHeight - 100 {
-            if !viewModel.isLoading && viewModel.canLoadMore {
-                loadingFooter.startAnimating()
-                viewModel.loadMorePokemon()
-            }
+            presenter.loadMorePokemon()
         }
     }
 }
 
-extension PokemonCollectionViewController: PokemonCollectionViewModelOutput {
-    func didFetchPokemonList() {
+extension PokemonCollectionViewController: PokemonCollectionPresenterOutput {
+    func showLoading() {
+        activityIndicator.startAnimating()
+    }
+    
+    func hideLoading() {
         activityIndicator.stopAnimating()
+    }
+    
+    func showFooterLoading() {
+        loadingFooter.startAnimating()
+    }
+    
+    func hideFooterLoading() {
+        loadingFooter.stopAnimating()
+    }
+    
+    func updatePokemonList() {
+        pokemonList = presenter.getPokemonList()
         collectionView.reloadData()
     }
     
-    func didFailFetchingPokemonList(_ error: Error) {
-        activityIndicator.stopAnimating()
-        loadingFooter.stopAnimating()
-        let alert = UIAlertController(title: "Error", message: "Failed to fetch Pokémon list: \(error.localizedDescription)", preferredStyle: .alert)
+    func showError(_ message: String) {
+        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
     
-    func didUpdateFilteredList() {
-        collectionView.reloadData()
-    }
-    
-    func didLoadMorePokemon() {
-        loadingFooter.stopAnimating()
-        collectionView.reloadData()
+    func navigateToDetail(pokemonId: Int) {
+        // Navigation is handled by the router
     }
 }
 
 extension PokemonCollectionViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let pokemon = viewModel.filteredPokemonList[indexPath.item]
-        let detailViewModel = PokemonDetailViewModel(getPokemonDetailUseCase: GetPokemonDetailUseCaseImpl(repository: PokemonRepositoryImpl(networkService: NetworkService())))
-        let detailViewController = PokemonDetailViewController(viewModel: detailViewModel, pokemonId: pokemon.id)
-        navigationController?.pushViewController(detailViewController, animated: true)
+        presenter.didSelectPokemon(at: indexPath.item)
     }
 }
