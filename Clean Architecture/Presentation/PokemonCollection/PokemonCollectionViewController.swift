@@ -35,6 +35,13 @@ final class PokemonCollectionViewController: UIViewController {
         return indicator
     }()
     
+    private let loadingFooter: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.hidesWhenStopped = true
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+
     init(viewModel: PokemonCollectionViewModelInput) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -68,6 +75,7 @@ final class PokemonCollectionViewController: UIViewController {
         
         view.addSubview(collectionView)
         view.addSubview(activityIndicator)
+        view.addSubview(loadingFooter)
         
         collectionView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide)
@@ -77,6 +85,11 @@ final class PokemonCollectionViewController: UIViewController {
         
         activityIndicator.snp.makeConstraints { make in
             make.center.equalToSuperview()
+        }
+        
+        loadingFooter.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-10)
         }
     }
     
@@ -127,6 +140,23 @@ extension PokemonCollectionViewController: UISearchResultsUpdating {
     }
 }
 
+extension PokemonCollectionViewController: UIScrollViewDelegate {
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard !searchController.isActive else { return }
+        
+        let offsetY = scrollView.contentOffset.y
+        let contentHeight = scrollView.contentSize.height
+        let screenHeight = scrollView.bounds.height
+        
+        if offsetY > contentHeight - screenHeight - 100 {
+            if !viewModel.isLoading && viewModel.canLoadMore {
+                loadingFooter.startAnimating()
+                viewModel.loadMorePokemon()
+            }
+        }
+    }
+}
+
 extension PokemonCollectionViewController: PokemonCollectionViewModelOutput {
     func didFetchPokemonList() {
         activityIndicator.stopAnimating()
@@ -135,12 +165,18 @@ extension PokemonCollectionViewController: PokemonCollectionViewModelOutput {
     
     func didFailFetchingPokemonList(_ error: Error) {
         activityIndicator.stopAnimating()
+        loadingFooter.stopAnimating()
         let alert = UIAlertController(title: "Error", message: "Failed to fetch Pokémon list: \(error.localizedDescription)", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
     
     func didUpdateFilteredList() {
+        collectionView.reloadData()
+    }
+    
+    func didLoadMorePokemon() {
+        loadingFooter.stopAnimating()
         collectionView.reloadData()
     }
 }
