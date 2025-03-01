@@ -14,13 +14,7 @@ protocol PokemonCollectionPresenterInput {
 }
 
 protocol PokemonCollectionPresenterOutput: AnyObject {
-    func showLoading()
-    func hideLoading()
-    func showFooterLoading()
-    func hideFooterLoading()
-    func updatePokemonList()
-    func showError(_ message: String)
-    func navigateToDetail(pokemonId: Int)
+    func updateState(_ state: PokemonCollectionViewState)
 }
 
 final class PokemonCollectionPresenter: PokemonCollectionPresenterInput {
@@ -34,6 +28,7 @@ final class PokemonCollectionPresenter: PokemonCollectionPresenterInput {
     private var canLoadMore = true
     private let pageSize = 20
     private var currentOffset = 0
+    private var isSearching = false
     
     init(interactor: PokemonCollectionInteractorInput, router: PokemonCollectionRouting) {
         self.interactor = interactor
@@ -41,23 +36,25 @@ final class PokemonCollectionPresenter: PokemonCollectionPresenterInput {
     }
     
     func viewDidLoad() {
-        output?.showLoading()
+        output?.updateState(.loading)
         interactor.fetchPokemonList(offset: currentOffset, limit: pageSize)
     }
     
     func loadMorePokemon() {
-        guard !isLoading, canLoadMore else { return }
+        guard !isLoading, canLoadMore, !isSearching else { return }
         isLoading = true
-        output?.showFooterLoading()
+        output?.updateState(.loadingMore)
         interactor.loadMorePokemon(offset: currentOffset, limit: pageSize)
     }
     
     func searchPokemon(query: String) {
         if query.isEmpty {
+            isSearching = false
             filteredList = pokemonList
-            output?.updatePokemonList()
+            output?.updateState(.loaded(PokemonCollectionModel(pokemonList: filteredList, isSearching: false)))
             return
         }
+        isSearching = true
         interactor.searchPokemon(name: query.lowercased())
     }
     
@@ -79,15 +76,15 @@ extension PokemonCollectionPresenter: PokemonCollectionInteractorOutput {
         canLoadMore = pokemons.count >= pageSize
         isLoading = false
         
-        output?.hideLoading()
-        output?.updatePokemonList()
+        output?.updateState(.loaded(PokemonCollectionModel(
+            pokemonList: filteredList,
+            isSearching: isSearching
+        )))
     }
     
     func didFailFetchingPokemonList(_ error: Error) {
         isLoading = false
-        output?.hideLoading()
-        output?.hideFooterLoading()
-        output?.showError(error.localizedDescription)
+        output?.updateState(.error(error))
     }
     
     func didLoadMorePokemon(_ pokemons: [Pokemon]) {
@@ -106,8 +103,10 @@ extension PokemonCollectionPresenter: PokemonCollectionInteractorOutput {
         canLoadMore = pokemons.count >= pageSize
         isLoading = false
         
-        output?.hideFooterLoading()
-        output?.updatePokemonList()
+        output?.updateState(.loaded(PokemonCollectionModel(
+            pokemonList: filteredList,
+            isSearching: isSearching
+        )))
     }
     
     func didSearchPokemon(_ pokemon: Pokemon?) {
@@ -116,7 +115,10 @@ extension PokemonCollectionPresenter: PokemonCollectionInteractorOutput {
         } else {
             filteredList = pokemonList.filter { $0.name.lowercased().contains(pokemon?.name.lowercased() ?? "") }
         }
-        output?.updatePokemonList()
+        output?.updateState(.loaded(PokemonCollectionModel(
+            pokemonList: filteredList,
+            isSearching: true
+        )))
     }
 }
 

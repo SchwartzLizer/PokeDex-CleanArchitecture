@@ -150,35 +150,30 @@ extension PokemonCollectionViewController: UIScrollViewDelegate {
 }
 
 extension PokemonCollectionViewController: PokemonCollectionPresenterOutput {
-    func showLoading() {
-        activityIndicator.startAnimating()
-    }
-    
-    func hideLoading() {
-        activityIndicator.stopAnimating()
-    }
-    
-    func showFooterLoading() {
-        loadingFooter.startAnimating()
-    }
-    
-    func hideFooterLoading() {
-        loadingFooter.stopAnimating()
-    }
-    
-    func updatePokemonList() {
-        pokemonList = presenter.getPokemonList()
-        collectionView.reloadData()
-    }
-    
-    func showError(_ message: String) {
-        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
-    }
-    
-    func navigateToDetail(pokemonId: Int) {
-        // Navigation is handled by the router
+    func updateState(_ state: PokemonCollectionViewState) {
+        switch state {
+        case .idle:
+            break
+            
+        case .loading:
+            activityIndicator.startAnimating()
+            
+        case .loaded(let model):
+            activityIndicator.stopAnimating()
+            loadingFooter.stopAnimating()
+            pokemonList = model.pokemonList
+            collectionView.reloadData()
+            
+        case .loadingMore:
+            loadingFooter.startAnimating()
+            
+        case .error(let error):
+            activityIndicator.stopAnimating()
+            loadingFooter.stopAnimating()
+            let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
     }
 }
 
