@@ -180,3 +180,12 @@ extension PokemonCollectionViewController: PokemonCollectionViewModelOutput {
         collectionView.reloadData()
     }
 }
+
+extension PokemonCollectionViewController: UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let pokemon = viewModel.filteredPokemonList[indexPath.item]
+        let detailViewModel = PokemonDetailViewModel(getPokemonDetailUseCase: GetPokemonDetailUseCaseImpl(repository: PokemonRepositoryImpl(networkService: NetworkService())))
+        let detailViewController = PokemonDetailViewController(viewModel: detailViewModel, pokemonId: pokemon.id)
+        navigationController?.pushViewController(detailViewController, animated: true)
+    }
+}
