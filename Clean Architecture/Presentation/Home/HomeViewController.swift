@@ -10,21 +10,10 @@ import SnapKit
 import Kingfisher
 
 final class HomeViewController: UIViewController {
-    // MARK: - Types
-    
-    private enum ViewState {
-        case loading
-        case loaded(Pokemon)
-        case error(Error)
-    }
-    
     // MARK: - Properties
-    
-    private let viewModel: HomeViewModel
-    private let router: HomeRouting
+    private let presenter: HomePresenterInput
     
     // MARK: - UI Components
-    
     private let mainStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .vertical
@@ -49,7 +38,6 @@ final class HomeViewController: UIViewController {
         imageView.layer.cornerRadius = 8
         imageView.backgroundColor = .systemGray6
         
-        // Add tap gesture for zooming
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(imageTapped))
         imageView.isUserInteractionEnabled = true
         imageView.addGestureRecognizer(tapGesture)
@@ -84,12 +72,9 @@ final class HomeViewController: UIViewController {
     )
     
     // MARK: - Lifecycle
-    
-    init(viewModel: HomeViewModel, router: HomeRouting) {
-        self.viewModel = viewModel
-        self.router = router
+    init(presenter: HomePresenterInput) {
+        self.presenter = presenter
         super.init(nibName: nil, bundle: nil)
-        viewModel.output = self
     }
     
     required init?(coder: NSCoder) {
@@ -104,21 +89,18 @@ final class HomeViewController: UIViewController {
     
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        // Cancel image downloading if needed
         pokemonImageView.kf.cancelDownloadTask()
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            // Update colors for dark/light mode changes
             randomButton.backgroundColor = .systemBlue
             collectionButton.backgroundColor = .systemGreen
         }
     }
     
     // MARK: - Setup Methods
-    
     private func setupUI() {
         view.backgroundColor = .systemBackground
         
@@ -128,7 +110,6 @@ final class HomeViewController: UIViewController {
         }
         
         view.addSubview(activityIndicator)
-        
         setupConstraints()
     }
     
@@ -146,7 +127,6 @@ final class HomeViewController: UIViewController {
             make.center.equalTo(pokemonImageView)
         }
         
-        // Make buttons full width
         [randomButton, collectionButton].forEach { button in
             button.snp.makeConstraints { make in
                 make.width.equalTo(mainStackView).offset(-40)
@@ -155,35 +135,78 @@ final class HomeViewController: UIViewController {
     }
     
     private func createActionButton(title: String, backgroundColor: UIColor, action: Selector) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.titleLabel?.font = .preferredFont(forTextStyle: .headline)
-        button.titleLabel?.adjustsFontForContentSizeCategory = true
-        button.backgroundColor = backgroundColor
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = title
+        configuration.baseBackgroundColor = backgroundColor
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 24, bottom: 12, trailing: 24)
+        
+        let button = UIButton(configuration: configuration)
+        button.configurationUpdateHandler = { button in
+            button.configuration?.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                var outgoing = incoming
+                outgoing.font = .preferredFont(forTextStyle: .headline)
+                return outgoing
+            }
+        }
         button.addTarget(self, action: action, for: .touchUpInside)
+        button.layer.cornerRadius = 10
         
         return button
     }
     
     private func loadRandomPokemon() {
-        updateState(.loading)
-        viewModel.fetchRandomPokemon()
+        presenter.presentRandomPokemon()
     }
     
-    private func updateState(_ state: ViewState) {
+    private func handleError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Error",
+            message: "Failed to fetch Pokémon: \(message)",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: "Try Again", style: .default) { [weak self] _ in
+            self?.loadRandomPokemon()
+        })
+        present(alert, animated: true)
+    }
+    
+    // MARK: - Actions
+    @objc private func randomButtonTapped() {
+        loadRandomPokemon()
+    }
+    
+    @objc private func collectionButtonTapped() {
+        presenter.presentPokemonCollection()
+    }
+    
+    @objc private func imageTapped() {
+        UIView.animate(withDuration: 0.1, animations: { [weak self] in
+            self?.pokemonImageView.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+        }) { _ in
+            UIView.animate(withDuration: 0.1) { [weak self] in
+                self?.pokemonImageView.transform = .identity
+            }
+        }
+    }
+}
+
+// MARK: - HomePresenterOutput
+extension HomeViewController: HomePresenterOutput {
+    func updateState(_ state: HomeViewState) {
         switch state {
+        case .idle:
+            activityIndicator.stopAnimating()
+            
         case .loading:
             activityIndicator.startAnimating()
             pokemonImageView.image = nil
             pokemonNameLabel.text = "Loading..."
             
-        case .loaded(let pokemon):
-            pokemonNameLabel.text = pokemon.name.capitalized
+        case .loaded(let model):
+            pokemonNameLabel.text = model.pokemon.name.capitalized
             
-            if let url = URL(string: pokemon.imageUrl) {
+            if let url = URL(string: model.pokemon.imageUrl) {
                 pokemonImageView.kf.setImage(
                     with: url,
                     placeholder: UIImage(systemName: "photo"),
@@ -204,53 +227,7 @@ final class HomeViewController: UIViewController {
         case .error(let error):
             activityIndicator.stopAnimating()
             pokemonNameLabel.text = "Error"
-            presentErrorAlert(with: error.localizedDescription)
+            handleError(error.localizedDescription)
         }
-    }
-    
-    private func presentErrorAlert(with message: String) {
-        let alert = UIAlertController(
-            title: "Error",
-            message: "Failed to fetch Pokémon: \(message)",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        alert.addAction(UIAlertAction(title: "Try Again", style: .default) { [weak self] _ in
-            self?.loadRandomPokemon()
-        })
-        present(alert, animated: true)
-    }
-    
-    // MARK: - Actions
-    
-    @objc private func randomButtonTapped() {
-        loadRandomPokemon()
-    }
-    
-    @objc private func collectionButtonTapped() {
-        router.navigateToPokemonCollection()
-    }
-    
-    @objc private func imageTapped() {
-        // Simple image zoom effect
-        UIView.animate(withDuration: 0.1, animations: { [weak self] in
-            self?.pokemonImageView.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
-        }) { _ in
-            UIView.animate(withDuration: 0.1) { [weak self] in
-                self?.pokemonImageView.transform = .identity
-            }
-        }
-    }
-}
-
-// MARK: - HomeViewModelOutput
-
-extension HomeViewController: HomeViewModelOutput {
-    func didFetchRandomPokemon(_ pokemon: Pokemon) {
-        updateState(.loaded(pokemon))
-    }
-    
-    func didFailFetchingRandomPokemon(_ error: Error) {
-        updateState(.error(error))
     }
 }
