@@ -20,8 +20,10 @@ final class PokemonCollectionRouter: PokemonCollectionRouting {
     }
     
     func navigateToDetail(pokemonId: Int) {
-        let detailViewModel = PokemonDetailViewModel(getPokemonDetailUseCase: GetPokemonDetailUseCaseImpl(repository: PokemonRepositoryImpl(networkService: NetworkService())))
-        let detailViewController = PokemonDetailViewController(viewModel: detailViewModel, pokemonId: pokemonId)
+        let detailViewController = PokemonDetailConfigurator.configure(
+            dependencyContainer: dependencyContainer,
+            pokemonId: pokemonId
+        )
         viewController?.navigationController?.pushViewController(detailViewController, animated: true)
     }
 }

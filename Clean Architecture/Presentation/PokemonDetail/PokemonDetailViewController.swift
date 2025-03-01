@@ -10,8 +10,7 @@ import SnapKit
 import Kingfisher
 
 final class PokemonDetailViewController: UIViewController {
-    private let viewModel: PokemonDetailViewModelInput
-    private let pokemonId: Int
+    private let presenter: PokemonDetailPresenterInput
     
     // MARK: - UI Components
     private let scrollView: UIScrollView = {
@@ -69,11 +68,9 @@ final class PokemonDetailViewController: UIViewController {
     }()
     
     // MARK: - Initialization
-    init(viewModel: PokemonDetailViewModelInput, pokemonId: Int) {
-        self.viewModel = viewModel
-        self.pokemonId = pokemonId
+    init(presenter: PokemonDetailPresenterInput) {
+        self.presenter = presenter
         super.init(nibName: nil, bundle: nil)
-        (viewModel as? PokemonDetailViewModel)?.output = self
     }
     
     required init?(coder: NSCoder) {
@@ -84,7 +81,7 @@ final class PokemonDetailViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        fetchPokemonDetail()
+        presenter.viewDidLoad()
     }
     
     // MARK: - Private Methods
@@ -145,53 +142,6 @@ final class PokemonDetailViewController: UIViewController {
         }
     }
     
-    private func fetchPokemonDetail() {
-        loadingIndicator.startAnimating()
-        viewModel.fetchPokemonDetail(id: pokemonId)
-    }
-    
-    private func updateUI() {
-        guard let pokemon = viewModel.pokemon else { return }
-        
-        title = pokemon.name
-        nameLabel.text = pokemon.name
-        idLabel.text = "#\(pokemon.id)"
-        
-        if let url = URL(string: pokemon.imageUrl) {
-            imageView.kf.setImage(
-                with: url,
-                options: [
-                    .transition(.fade(0.3)),
-                    .cacheOriginalImage
-                ]
-            )
-        }
-        
-        // Setup types
-        typesStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        pokemon.types.forEach { type in
-            let typeLabel = UILabel()
-            typeLabel.text = type.capitalized
-            typeLabel.textAlignment = .center
-            typeLabel.font = .systemFont(ofSize: 14, weight: .medium)
-            typeLabel.backgroundColor = .systemBlue
-            typeLabel.textColor = .white
-            typeLabel.layer.cornerRadius = 8
-            typeLabel.clipsToBounds = true
-            typeLabel.snp.makeConstraints { make in
-                make.height.equalTo(32)
-            }
-            typesStackView.addArrangedSubview(typeLabel)
-        }
-        
-        // Setup stats
-        statsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        pokemon.stats.forEach { stat in
-            let statView = createStatView(name: stat.name.capitalized, value: stat.value)
-            statsStackView.addArrangedSubview(statView)
-        }
-    }
-    
     private func createStatView(name: String, value: Int) -> UIView {
         let containerView = UIView()
         
@@ -233,21 +183,61 @@ final class PokemonDetailViewController: UIViewController {
     }
 }
 
-// MARK: - PokemonDetailViewModelOutput
-extension PokemonDetailViewController: PokemonDetailViewModelOutput {
-    func didFetchPokemonDetail() {
-        loadingIndicator.stopAnimating()
-        updateUI()
-    }
-    
-    func didFailFetchingPokemonDetail(_ error: Error) {
-        loadingIndicator.stopAnimating()
-        let alert = UIAlertController(
-            title: "Error",
-            message: "Failed to fetch Pokemon detail: \(error.localizedDescription)",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+// MARK: - PokemonDetailPresenterOutput
+extension PokemonDetailViewController: PokemonDetailPresenterOutput {
+    func updateState(_ state: PokemonDetailViewState) {
+        switch state {
+        case .loading:
+            loadingIndicator.startAnimating()
+        case .loaded(let pokemon):
+            loadingIndicator.stopAnimating()
+            title = pokemon.name
+            nameLabel.text = pokemon.name
+            idLabel.text = "#\(pokemon.id)"
+            
+            if let url = URL(string: pokemon.imageUrl) {
+                imageView.kf.setImage(
+                    with: url,
+                    options: [
+                        .transition(.fade(0.3)),
+                        .cacheOriginalImage
+                    ]
+                )
+            }
+            
+            // Setup types
+            typesStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            pokemon.types.forEach { type in
+                let typeLabel = UILabel()
+                typeLabel.text = type.capitalized
+                typeLabel.textAlignment = .center
+                typeLabel.font = .systemFont(ofSize: 14, weight: .medium)
+                typeLabel.backgroundColor = .systemBlue
+                typeLabel.textColor = .white
+                typeLabel.layer.cornerRadius = 8
+                typeLabel.clipsToBounds = true
+                typeLabel.snp.makeConstraints { make in
+                    make.height.equalTo(32)
+                }
+                typesStackView.addArrangedSubview(typeLabel)
+            }
+            
+            // Setup stats
+            statsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            pokemon.stats.forEach { stat in
+                let statView = createStatView(name: stat.name.capitalized, value: stat.value)
+                statsStackView.addArrangedSubview(statView)
+            }
+            
+        case .error(let error):
+            loadingIndicator.stopAnimating()
+            let alert = UIAlertController(
+                title: "Error",
+                message: "Failed to fetch Pokemon detail: \(error.localizedDescription)",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
     }
 }
