@@ -6,44 +6,46 @@
 //
 
 import UIKit
+import SnapKit
 
 final class HomeViewController: UIViewController {
     private let viewModel: HomeViewModelInput
     private let router: HomeRouting
     
-    private let pokemonImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        return imageView
+    private let mainStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 20
+        stackView.alignment = .center
+        return stackView
     }()
     
-    private let pokemonNameLabel: UILabel = {
+    private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 24, weight: .bold)
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "PokéDex"
+        label.font = .systemFont(ofSize: 32, weight: .bold)
         return label
     }()
     
-    private let refreshButton: UIButton = {
+    private let randomButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("Refresh", for: .normal)
-        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Random Pokémon", for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 18)
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 10
+        button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
         return button
     }()
     
-    private let activityIndicator: UIActivityIndicatorView = {
-        let indicator = UIActivityIndicatorView(style: .large)
-        indicator.hidesWhenStopped = true
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        return indicator
-    }()
-    
-    private let showAllButton: UIButton = {
+    private let collectionButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("View All Pokémon", for: .normal)
-        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("View Collection", for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 18)
+        button.backgroundColor = .systemGreen
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 10
+        button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
         return button
     }()
     
@@ -66,39 +68,22 @@ final class HomeViewController: UIViewController {
     }
     
     private func setupUI() {
-        view.backgroundColor = .white
-        title = "Pokémon Home"
+        view.backgroundColor = .systemBackground
         
-        view.addSubview(pokemonImageView)
-        view.addSubview(pokemonNameLabel)
-        view.addSubview(refreshButton)
-        view.addSubview(activityIndicator)
-        view.addSubview(showAllButton)
+        view.addSubview(mainStackView)
+        mainStackView.addArrangedSubview(titleLabel)
+        mainStackView.addArrangedSubview(randomButton)
+        mainStackView.addArrangedSubview(collectionButton)
         
-        NSLayoutConstraint.activate([
-            pokemonImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            pokemonImageView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -50),
-            pokemonImageView.widthAnchor.constraint(equalToConstant: 200),
-            pokemonImageView.heightAnchor.constraint(equalToConstant: 200),
-            
-            pokemonNameLabel.topAnchor.constraint(equalTo: pokemonImageView.bottomAnchor, constant: 20),
-            pokemonNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            pokemonNameLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            
-            refreshButton.topAnchor.constraint(equalTo: pokemonNameLabel.bottomAnchor, constant: 30),
-            refreshButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            
-            activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            
-            showAllButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            showAllButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
-        ])
+        mainStackView.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.leading.trailing.equalToSuperview().inset(20)
+        }
     }
     
     private func setupActions() {
-        refreshButton.addTarget(self, action: #selector(refreshButtonTapped), for: .touchUpInside)
-        showAllButton.addTarget(self, action: #selector(showAllButtonTapped), for: .touchUpInside)
+        randomButton.addTarget(self, action: #selector(randomButtonTapped), for: .touchUpInside)
+        collectionButton.addTarget(self, action: #selector(collectionButtonTapped), for: .touchUpInside)
     }
     
     private func loadRandomPokemon() {
@@ -106,11 +91,11 @@ final class HomeViewController: UIViewController {
         viewModel.fetchRandomPokemon()
     }
     
-    @objc private func refreshButtonTapped() {
+    @objc private func randomButtonTapped() {
         loadRandomPokemon()
     }
     
-    @objc private func showAllButtonTapped() {
+    @objc private func collectionButtonTapped() {
         router.navigateToPokemonCollection()
     }
 }
