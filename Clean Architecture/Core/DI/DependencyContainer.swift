@@ -16,6 +16,9 @@ final class DependencyContainer {
     private let getPokemonListUseCase: GetPokemonListUseCase
     private let getPokemonDetailUseCase: GetPokemonDetailUseCase
     private let getRandomPokemonUseCase: GetRandomPokemonUseCase
+    private lazy var searchPokemonUseCase: SearchPokemonUseCase = {
+        return SearchPokemonUseCaseImpl(repository: pokemonRepository)
+    }()
     
     init() {
         // Initialize dependencies
@@ -35,7 +38,14 @@ final class DependencyContainer {
     }
     
     func makePokemonCollectionViewController() -> PokemonCollectionViewController {
-        let viewModel = PokemonCollectionViewModel(getPokemonListUseCase: getPokemonListUseCase)
+        let viewModel = PokemonCollectionViewModel(getPokemonListUseCase: getPokemonListUseCase, searchPokemonUseCase: searchPokemonUseCase)
         return PokemonCollectionViewController(viewModel: viewModel)
+    }
+    
+    func makePokemonCollectionViewModel() -> PokemonCollectionViewModelInput {
+        return PokemonCollectionViewModel(
+            getPokemonListUseCase: getPokemonListUseCase,
+            searchPokemonUseCase: searchPokemonUseCase
+        )
     }
 }

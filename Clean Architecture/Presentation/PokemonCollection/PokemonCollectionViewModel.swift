@@ -23,13 +23,14 @@ protocol PokemonCollectionViewModelOutput: AnyObject {
 final class PokemonCollectionViewModel: PokemonCollectionViewModelInput {
     weak var output: PokemonCollectionViewModelOutput?
     private let getPokemonListUseCase: GetPokemonListUseCase
+    private let searchPokemonUseCase: SearchPokemonUseCase
     
     private(set) var pokemonList: [Pokemon] = []
     private(set) var filteredPokemonList: [Pokemon] = []
-    private var isFiltering = false
     
-    init(getPokemonListUseCase: GetPokemonListUseCase) {
+    init(getPokemonListUseCase: GetPokemonListUseCase, searchPokemonUseCase: SearchPokemonUseCase) {
         self.getPokemonListUseCase = getPokemonListUseCase
+        self.searchPokemonUseCase = searchPokemonUseCase
     }
     
     func fetchPokemonList() {
@@ -52,11 +53,26 @@ final class PokemonCollectionViewModel: PokemonCollectionViewModelInput {
     func searchPokemon(with query: String) {
         if query.isEmpty {
             filteredPokemonList = pokemonList
-        } else {
-            filteredPokemonList = pokemonList.filter {
-                $0.name.lowercased().contains(query.lowercased())
+            output?.didUpdateFilteredList()
+            return
+        }
+        
+        searchPokemonUseCase.execute(name: query) { [weak self] result in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let pokemon):
+                    self.filteredPokemonList = [pokemon]
+                    self.output?.didUpdateFilteredList()
+                case .failure:
+                    // If search fails, fall back to local filtering
+                    self.filteredPokemonList = self.pokemonList.filter {
+                        $0.name.lowercased().contains(query.lowercased())
+                    }
+                    self.output?.didUpdateFilteredList()
+                }
             }
         }
-        output?.didUpdateFilteredList()
     }
 }

@@ -9,6 +9,7 @@ protocol PokemonRepository {
     func getPokemonList(offset: Int, limit: Int, completion: @escaping (Result<[Pokemon], Error>) -> Void)
     func getPokemonDetail(id: Int, completion: @escaping (Result<PokemonDetail, Error>) -> Void)
     func getRandomPokemon(completion: @escaping (Result<Pokemon, Error>) -> Void)
+    func searchPokemon(name: String, completion: @escaping (Result<Pokemon, Error>) -> Void)
 }
 
 final class PokemonRepositoryImpl: PokemonRepository {
@@ -61,6 +62,22 @@ final class PokemonRepositoryImpl: PokemonRepository {
         let randomId = Int.random(in: 1...898)
         
         networkService.request(PokemonEndpoint.getRandom(randomId: randomId)) { (result: Result<PokemonDetailResponse, NetworkError>) in
+            switch result {
+            case .success(let response):
+                let pokemon = Pokemon(
+                    id: response.id,
+                    name: response.name.capitalized,
+                    imageUrl: response.sprites.frontDefault
+                )
+                completion(.success(pokemon))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    func searchPokemon(name: String, completion: @escaping (Result<Pokemon, Error>) -> Void) {
+        networkService.request(PokemonEndpoint.getSearchedPokemon(name: name.lowercased())) { (result: Result<PokemonDetailResponse, NetworkError>) in
             switch result {
             case .success(let response):
                 let pokemon = Pokemon(
