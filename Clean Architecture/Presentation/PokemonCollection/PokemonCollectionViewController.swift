@@ -52,6 +52,16 @@ final class PokemonCollectionViewController: UIViewController {
         loadPokemonList()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationItem.hidesSearchBarWhenScrolling = false
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        navigationItem.hidesSearchBarWhenScrolling = false
+    }
+    
     private func setupUI() {
         view.backgroundColor = .white
         title = "Pokémon Collection"
@@ -75,6 +85,7 @@ final class PokemonCollectionViewController: UIViewController {
         searchController.obscuresBackgroundDuringPresentation = false
         searchController.searchBar.placeholder = "Search Pokémon"
         navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
         definesPresentationContext = true
     }
     
